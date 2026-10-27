@@ -1,0 +1,201 @@
+[
+  {
+    "id": "SEC-01",
+    "topic": "SQL injection",
+    "title": "A query built from input",
+    "context": "The search term comes from a request. Select the unsafe line.",
+    "language": "csharp",
+    "code": [
+      "var term = request.Query[\"q\"].ToString();",
+      "var sql = \"SELECT Id, Name FROM Items WHERE Name = '\" + term + \"'\";",
+      "using var command = new SqlCommand(sql, connection);",
+      "using var reader = command.ExecuteReader();"
+    ],
+    "bad": 1,
+    "explanation": "The input is concatenated into SQL syntax. An input containing quote characters can change the query's meaning.",
+    "fix": "Use a parameterised query, for example WHERE Name = @name, then add the term as a parameter.",
+    "test": "Use a quote and SQL-looking input, then verify it is treated as a literal search value."
+  },
+  {
+    "id": "SEC-02",
+    "topic": "Authorisation",
+    "title": "A record ID is not permission",
+    "context": "The route receives an item ID from the caller.",
+    "language": "csharp",
+    "code": [
+      "var itemId = request.RouteValues[\"id\"];",
+      "var item = await repository.Find(itemId);",
+      "return Results.Ok(item);"
+    ],
+    "bad": 1,
+    "explanation": "The code loads a record without checking whether the current user may access it. Knowing an identifier must not grant access.",
+    "fix": "Apply a server-side ownership or policy check before returning the record.",
+    "test": "Sign in as one user and request a record belonging to another user. Expect a denial."
+  },
+  {
+    "id": "SEC-03",
+    "topic": "CSRF",
+    "title": "A state change accepts ambient credentials",
+    "context": "A cookie-authenticated endpoint changes an account preference.",
+    "language": "csharp",
+    "code": [
+      "app.MapPost(\"/preferences\", async (Request r, User u) => {",
+      "  await preferences.Save(u.Id, r.Theme);",
+      "  return Results.Ok();",
+      "});"
+    ],
+    "bad": 0,
+    "explanation": "If cookie authentication is used, a cross-site request may cause a state change unless the application's CSRF protections are applied.",
+    "fix": "Use the framework's appropriate anti-forgery protection and validate request origin where suitable.",
+    "test": "Submit a cross-origin state-changing request and confirm the server rejects it."
+  },
+  {
+    "id": "SEC-04",
+    "topic": "SSRF",
+    "title": "A user-controlled URL is fetched",
+    "context": "A preview endpoint accepts a URL to retrieve.",
+    "language": "csharp",
+    "code": [
+      "var target = new Uri(request.Url);",
+      "using var client = new HttpClient();",
+      "var page = await client.GetStringAsync(target);",
+      "return Results.Text(page);"
+    ],
+    "bad": 0,
+    "explanation": "A caller can ask the server to make requests to destinations the caller cannot reach directly, including internal addresses.",
+    "fix": "Prefer an allowlist of permitted hosts and schemes, block private and link-local ranges, and validate redirects and resolved addresses.",
+    "test": "Try loopback, private-network, metadata-like and redirecting URLs in a controlled test environment."
+  },
+  {
+    "id": "SEC-05",
+    "topic": "CSV formula injection",
+    "title": "Spreadsheet cells are not always plain text",
+    "context": "The export includes a value supplied by a user.",
+    "language": "typescript",
+    "code": [
+      "function exportCell(value: string) {",
+      "  return `\"${value.replaceAll('\"', '\"\"')}\"`;",
+      "}",
+      "const row = [exportCell(userProvidedName)].join(',');"
+    ],
+    "bad": 1,
+    "explanation": "CSV quoting handles delimiters and quotes, but a cell beginning with formula characters can still be interpreted by spreadsheet software.",
+    "fix": "Apply a documented spreadsheet-safe policy to dangerous leading characters, then quote and escape the cell. Test the target spreadsheet applications.",
+    "test": "Export values beginning with equals, plus, minus and at-sign, then inspect how they open in a spreadsheet."
+  },
+  {
+    "id": "SEC-06",
+    "topic": "Password storage",
+    "title": "A fast hash is not password storage",
+    "context": "The app stores a digest for later login checks.",
+    "language": "csharp",
+    "code": [
+      "var bytes = Encoding.UTF8.GetBytes(password);",
+      "var digest = SHA256.HashData(bytes);",
+      "await users.SavePasswordDigest(user.Id, digest);"
+    ],
+    "bad": 1,
+    "explanation": "A fast general-purpose hash makes large-scale password guessing cheaper, and this example has no per-password salt or work factor.",
+    "fix": "Use the platform's password-hashing implementation with a unique salt and a suitable work factor. Do not design a password hash format yourself.",
+    "test": "Review the stored format and verify that the framework's password verification API is used."
+  },
+  {
+    "id": "SEC-07",
+    "topic": "Insecure key storage",
+    "title": "A key committed with the source",
+    "context": "This constant is used to sign application tokens.",
+    "language": "typescript",
+    "code": [
+      "const issuer = \"example-app\";",
+      "const signingKey = \"dev-key-change-me-123\";",
+      "const token = sign(payload, signingKey);",
+      "return token;"
+    ],
+    "bad": 1,
+    "explanation": "A secret in source can be copied into repository history and every clone. Renaming the variable does not protect the value.",
+    "fix": "Load secrets from an appropriate runtime secret store or injected environment configuration, and rotate any exposed key.",
+    "test": "Scan repository history and verify the application fails safely when required secret configuration is absent."
+  },
+  {
+    "id": "SEC-08",
+    "topic": "Input validation",
+    "title": "A parse result is ignored",
+    "context": "The field should contain a whole number.",
+    "language": "typescript",
+    "code": [
+      "const raw = formData.get(\"quantity\");",
+      "const quantity = Number(raw);",
+      "await saveQuantity(quantity);"
+    ],
+    "bad": 2,
+    "explanation": "Converting input does not prove it is a finite integer or within the business range. Values such as empty strings or decimals may be accepted unexpectedly.",
+    "fix": "Validate type, finiteness, integer status and the documented minimum and maximum before saving.",
+    "test": "Try empty, whitespace, decimal, negative, huge and non-numeric values."
+  },
+  {
+    "id": "SEC-09",
+    "topic": "Open redirect",
+    "title": "Redirect target comes from the query",
+    "context": "After sign-in, the app redirects to a return URL.",
+    "language": "csharp",
+    "code": [
+      "var query = request.Query;",
+      "var next = query[\"next\"].ToString();",
+      "return Results.Redirect(next);"
+    ],
+    "bad": 2,
+    "explanation": "A caller can supply a destination outside the application, which can make a trusted sign-in flow useful for phishing.",
+    "fix": "Accept only local relative paths or compare the destination against a strict allowlist of trusted origins.",
+    "test": "Try an absolute external URL, a protocol-relative URL and a valid local path."
+  },
+  {
+    "id": "SEC-10",
+    "topic": "Error handling",
+    "title": "An internal exception is returned",
+    "context": "A route catches an exception while processing a request.",
+    "language": "typescript",
+    "code": [
+      "try {",
+      "  return await runTask(input);",
+      "} catch (error) {",
+      "  return response.status(500).send(String(error));",
+      "}"
+    ],
+    "bad": 3,
+    "explanation": "Exception messages can contain internal paths, query details or implementation information. Returning them leaks details to callers.",
+    "fix": "Return a generic error with a correlation identifier, and keep appropriate diagnostic details in access-controlled logs.",
+    "test": "Force an exception and confirm the response has no stack, secret or internal path."
+  },
+  {
+    "id": "SEC-11",
+    "topic": "Path traversal",
+    "title": "A filename is joined without confinement",
+    "context": "A download endpoint accepts a filename.",
+    "language": "csharp",
+    "code": [
+      "var filename = request.Query[\"file\"].ToString();",
+      "var path = Path.Combine(rootDirectory, filename);",
+      "return Results.File(path);"
+    ],
+    "bad": 1,
+    "explanation": "Path combination alone does not confine a caller-supplied path to the intended directory. Traversal segments can escape the root.",
+    "fix": "Resolve the full path, verify it remains under the intended root using a correct path comparison, and prefer opaque IDs mapped to known files.",
+    "test": "Try parent-directory segments, encoded separators and absolute paths on the target operating system."
+  },
+  {
+    "id": "SEC-12",
+    "topic": "DOM injection",
+    "title": "Untrusted text becomes HTML",
+    "context": "A search term is displayed in a result panel.",
+    "language": "typescript",
+    "code": [
+      "const result = document.querySelector(\"#result\");",
+      "const term = searchInput.value;",
+      "result.innerHTML = `No matches for ${term}`;"
+    ],
+    "bad": 2,
+    "explanation": "The browser parses the user-controlled string as HTML, so markup can become executable content.",
+    "fix": "Use textContent for plain text, or apply a reviewed sanitisation approach when rich HTML is genuinely required.",
+    "test": "Enter a harmless markup string and verify it is displayed as text, not parsed into elements."
+  }
+]
