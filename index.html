@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="Original secure-coding examples with fixes and test ideas."><title>Bug Spotter</title><link rel="stylesheet" href="styles.css"></head>
+<body><main class="wrap">
+<p class="eyebrow">SOURCE REVIEW / 002</p><h1>Bug Spotter</h1><p class="intro">Select the line you think is unsafe. These are original teaching examples, not copied training challenges.</p>
+<div class="toolbar"><label for="topic">Filter examples</label><select id="topic"><option value="all">All topics</option></select><span id="score" role="status">Solved: 0</span></div>
+<section id="case" aria-live="polite"><h2 id="title">Loading examples</h2><p id="context"></p><pre id="snippet" aria-label="Code snippet"></pre><div id="feedback" class="feedback" hidden></div><div class="controls"><button id="check" type="button">Check selected line</button><button id="next" type="button">Next example</button></div></section>
+<p class="note">These examples are intentionally small. Real security reviews need context, threat modelling and tests against the actual application.</p>
+</main><script type="module" src="src/app.js"></script></body></html>
